@@ -3,13 +3,21 @@ name: Build Check
 on:
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - '**/*.md'
+      - 'README.md'
+      - '.github/*.md'
   push:
     branches: [ main ]
+    paths-ignore:
+      - '**/*.md'
+      - 'README.md'
+      - '.github/*.md'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    if: ${{ !contains(github.event.pull_request.changed_files, 'README.md') && github.event_name != 'push' || github.event_name == 'push' && !contains(github.event.head_commit.modified, 'README.md') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
