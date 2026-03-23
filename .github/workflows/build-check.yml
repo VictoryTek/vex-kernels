@@ -22,3 +22,14 @@ jobs:
 
       - name: Build kernel
         run: nix build .#linux-bazzite --show-trace
+
+      - name: Add swap space
+        run: |
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
+      - name: Build kernel
+        run: nix build .#linux-bazzite --show-trace
