@@ -2,14 +2,6 @@
   lib,
   fetchFromGitHub,
   linuxManualConfig,
-  buildPackages,
-  perl,
-  bc,
-  bison,
-  flex,
-  openssl,
-  elfutils,
-  stdenv,
 }:
 
 let
@@ -21,25 +13,16 @@ let
     rev = pins.rev;
     hash = pins.srcHash;
   };
-
-  configfile = stdenv.mkDerivation {
-    name = "linux-bazzite-defconfig-${pins.version}";
-    inherit src;
-    nativeBuildInputs = [ perl bc bison flex openssl elfutils ];
-    buildPhase = ''
-      make ARCH=x86_64 defconfig
-    '';
-    installPhase = ''
-      cp .config $out
-    '';
-  };
 in
 
 linuxManualConfig {
-  inherit src lib configfile;
+  inherit src lib;
   version = pins.version;
   modDirVersion = pins.version;
   allowImportFromDerivation = true;
+
+  # Use the x86_64 config shipped in the bazzite source tree
+  configfile = "${src}/configs/kernel-x86_64-fedora.config";
 
   extraMeta = {
     description = "Bazzite kernel - gaming and handheld optimized";
