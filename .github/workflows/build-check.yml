@@ -1,0 +1,24 @@
+name: Build Check
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+
+      - name: Check flake is valid
+        run: nix flake check
+
+      - name: Build kernel
+        run: nix build .#linux-bazzite --show-trace

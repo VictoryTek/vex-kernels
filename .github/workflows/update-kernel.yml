@@ -1,0 +1,98 @@
+name: Update Bazzite Kernel
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+
+      - name: Check for new commits on bazzite branch
+        id: check
+        run: |
+          # Get the branch name for the current major version in pins.json
+          CURRENT_VERSION=$(cat pins.json | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])")
+          MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+          BRANCH="bazzite-${MAJOR}"
+
+          # Get latest commit on that branch
+          LATEST_REV=$(curl -s "https://api.github.com/repos/bazzite-org/kernel-bazzite/commits/${BRANCH}" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])")
+
+          # Get latest release tag to extract the version number
+          LATEST_TAG=$(curl -s https://api.github.com/repos/bazzite-org/kernel-bazzite/releases/latest \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
+
+          CURRENT_REV=$(cat pins.json | python3 -c "import sys,json; print(json.load(sys.stdin)['rev'])")
+
+          echo "latest_rev=$LATEST_REV" >> $GITHUB_OUTPUT
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "current_rev=$CURRENT_REV" >> $GITHUB_OUTPUT
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+
+          if [ "$LATEST_REV" != "$CURRENT_REV" ]; then
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fetch new source hash
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          LATEST_REV="${{ steps.check.outputs.latest_rev }}"
+          LATEST_TAG="${{ steps.check.outputs.latest_tag }}"
+
+          SRC_HASH=$(nix run nixpkgs#nix-prefetch-github -- \
+            --rev "$LATEST_REV" \
+            bazzite-org kernel-bazzite \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['hash'])")
+
+          python3 -c "
+          import json
+          data = {
+            'version': '$LATEST_TAG',
+            'rev': '$LATEST_REV',
+            'srcHash': '$SRC_HASH'
+          }
+          print(json.dumps(data, indent=2))
+          " > pins.json
+
+          echo "Updated pins.json to $LATEST_TAG ($LATEST_REV)"
+          cat pins.json
+
+      - name: Update flake.lock
+        if: steps.check.outputs.needs_update == 'true'
+        run: nix flake update
+
+      - name: Open pull request
+        if: steps.check.outputs.needs_update == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "kernel: bump bazzite to ${{ steps.check.outputs.latest_tag }}"
+          title: "Kernel update: ${{ steps.check.outputs.current_version }} → ${{ steps.check.outputs.latest_tag }}"
+          body: |
+            Automated update from upstream bazzite kernel.
+
+            - **From version:** `${{ steps.check.outputs.current_version }}`
+            - **To version:** `${{ steps.check.outputs.latest_tag }}`
+            - **New commit:** `${{ steps.check.outputs.latest_rev }}`
+            - **Branch tracked:** `${{ steps.check.outputs.branch }}`
+            - **Release page:** https://github.com/bazzite-org/kernel-bazzite/releases/tag/${{ steps.check.outputs.latest_tag }}
+
+            Review and merge once the build check passes.
+          branch: "update/bazzite-kernel-${{ steps.check.outputs.latest_tag }}"
+          delete-branch: true
