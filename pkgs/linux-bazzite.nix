@@ -21,8 +21,7 @@ linuxManualConfig {
   modDirVersion = pins.version;
   allowImportFromDerivation = true;
 
-  # Use the x86_64 config shipped in the bazzite source tree
-  configfile = "${src}/configs/kernel-x86_64-fedora.config";
+  configfile = "${src}/kernel-x86_64-fedora.config";
 
   extraMeta = {
     description = "Bazzite kernel - gaming and handheld optimized";
