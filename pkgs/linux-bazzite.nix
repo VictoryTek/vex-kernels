@@ -20,6 +20,10 @@ buildLinux (args // {
     hash = pins.srcHash;
   };
 
+  # Bazzite already includes its own patches — skip NixOS's extra kernel patches
+  # which are written against vanilla kernel trees and conflict with bazzite's tree
+  kernelPatches = [];
+
   extraMeta = {
     description = "Bazzite kernel - gaming and handheld optimized";
     branch = "bazzite-${lib.versions.major pins.version}";
