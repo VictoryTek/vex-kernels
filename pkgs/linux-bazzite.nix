@@ -33,18 +33,8 @@ kernel.overrideAttrs (old: {
   patches = [];
 
   postPatch = ''
-    # Apply bazzite patches, allowing new files to be created
-    for p in \
-      ${bazzite}/patch-1-redhat.patch \
-      ${bazzite}/patch-2-handheld.patch \
-      ${bazzite}/patch-3-akmods.patch \
-      ${bazzite}/patch-4-amdgpu-vrr-whitelist.patch; do
-      echo "Applying $p"
-      patch -p1 --forward --no-backup-if-mismatch < "$p" || true
-    done
-
-    # Stub out missing akmod Kconfig files that are external modules
-    # bazzite builds these separately as akmods; we just need empty stubs
+    # Pre-create stub Kconfig files for external akmod modules BEFORE patching
+    # so patch doesn't create these paths as files instead of directories
     for kconfig in \
       drivers/custom/evdi/module/Kconfig \
       drivers/custom/v4l2loopback/Kconfig \
@@ -58,6 +48,16 @@ kernel.overrideAttrs (old: {
       drivers/custom/xonedo/Kconfig; do
       mkdir -p "$(dirname $kconfig)"
       touch "$kconfig"
+    done
+
+    # Apply bazzite patches
+    for p in \
+      ${bazzite}/patch-1-redhat.patch \
+      ${bazzite}/patch-2-handheld.patch \
+      ${bazzite}/patch-3-akmods.patch \
+      ${bazzite}/patch-4-amdgpu-vrr-whitelist.patch; do
+      echo "Applying $p"
+      patch -p1 --forward --no-backup-if-mismatch < "$p" || true
     done
   '' + (old.postPatch or "");
 
