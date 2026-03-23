@@ -2,27 +2,43 @@
   lib,
   fetchFromGitHub,
   linuxManualConfig,
-  ...
+  buildPackages,
+  perl,
+  bc,
+  bison,
+  flex,
+  openssl,
+  elfutils,
+  stdenv,
 }:
 
 let
   pins = builtins.fromJSON (builtins.readFile ../pins.json);
+
   src = fetchFromGitHub {
     owner = "bazzite-org";
     repo = "kernel-bazzite";
     rev = pins.rev;
     hash = pins.srcHash;
   };
+
+  configfile = stdenv.mkDerivation {
+    name = "linux-bazzite-defconfig-${pins.version}";
+    inherit src;
+    nativeBuildInputs = [ perl bc bison flex openssl elfutils ];
+    buildPhase = ''
+      make ARCH=x86_64 defconfig
+    '';
+    installPhase = ''
+      cp .config $out
+    '';
+  };
 in
 
 linuxManualConfig {
-  inherit src lib;
+  inherit src lib configfile;
   version = pins.version;
   modDirVersion = pins.version;
-
-  # Use the kernel's default config as a base
-  # allowImportFromDerivation lets Nix read the config at eval time
-  configfile = "${src}/kernel-local";
   allowImportFromDerivation = true;
 
   extraMeta = {
