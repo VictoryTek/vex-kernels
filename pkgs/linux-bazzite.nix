@@ -1,31 +1,32 @@
 {
   lib,
   fetchFromGitHub,
-  buildLinux,
+  linuxManualConfig,
   ...
-} @ args:
+}:
 
 let
   pins = builtins.fromJSON (builtins.readFile ../pins.json);
-in
-
-buildLinux (args // {
-  inherit (pins) version;
-  modDirVersion = pins.version;
-
   src = fetchFromGitHub {
     owner = "bazzite-org";
     repo = "kernel-bazzite";
     rev = pins.rev;
     hash = pins.srcHash;
   };
+in
 
-  # Bazzite already includes its own patches — skip NixOS's extra kernel patches
-  # which are written against vanilla kernel trees and conflict with bazzite's tree
-  kernelPatches = [];
+linuxManualConfig {
+  inherit src lib;
+  version = pins.version;
+  modDirVersion = pins.version;
+
+  # Use the kernel's default config as a base
+  # allowImportFromDerivation lets Nix read the config at eval time
+  configfile = "${src}/kernel-local";
+  allowImportFromDerivation = true;
 
   extraMeta = {
     description = "Bazzite kernel - gaming and handheld optimized";
     branch = "bazzite-${lib.versions.major pins.version}";
   };
-})
+}
