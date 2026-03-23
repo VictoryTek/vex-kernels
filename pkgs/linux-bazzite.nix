@@ -28,10 +28,13 @@ let
       ${bazzite}/kernel-x86_64-fedora.config > $out
   '';
 
+  # Strip the bazzite suffix to get the vanilla kernel version e.g. 6.17.7
+  kernelVersion = builtins.head (lib.strings.splitString "-" pins.version);
+
   kernel = linuxManualConfig {
     inherit src lib configfile;
     version = pins.version;
-    modDirVersion = pins.version;
+    modDirVersion = kernelVersion;
     allowImportFromDerivation = true;
   };
 in
