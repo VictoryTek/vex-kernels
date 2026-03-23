@@ -13,7 +13,6 @@
     {
       packages.${system} = {
         linux-bazzite = pkgs.callPackage ./pkgs/linux-bazzite.nix {};
-        linuxPackages-bazzite = pkgs.linuxPackagesFor self.packages.${system}.linux-bazzite;
         default = self.packages.${system}.linux-bazzite;
       };
 
