@@ -71,7 +71,7 @@ kernel.overrideAttrs (old: {
   '' + (old.postPatch or "");
 
   extraMeta = {
-    description = "Bazzite kernel - gaming and handheld optimized";
+    description = "Bazzite kernel - gaming and handheld optimized (NixOS)";
     branch = "bazzite-${lib.versions.major pins.version}";
   };
 })

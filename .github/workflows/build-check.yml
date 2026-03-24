@@ -3,33 +3,19 @@ name: Build Check
 on:
   pull_request:
     branches: [ main ]
-    paths-ignore:
-      - '**/*.md'
-      - 'README.md'
-      - '.github/*.md'
   push:
     branches: [ main ]
-    paths-ignore:
-      - '**/*.md'
-      - 'README.md'
-      - '.github/*.md'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.changed_files, 'README.md') && github.event_name != 'push' || github.event_name == 'push' && !contains(github.event.head_commit.modified, 'README.md') }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v14
-
-      - name: Check flake is valid
-        run: nix flake check
-
-      - name: Build kernel
-        run: nix build .#linux-bazzite --show-trace
 
       - name: Add swap space
         run: |
@@ -39,5 +25,13 @@ jobs:
           sudo swapon /swapfile
           free -h
 
+      - name: Check flake is valid
+        run: nix flake check
+
       - name: Build kernel
-        run: nix build .#linux-bazzite --show-trace
+        run: |
+          nix build .#linux-bazzite --show-trace --keep-failed 2>&1 || {
+            echo "=== BUILD FAILED, fetching full log ==="
+            nix log $(nix build .#linux-bazzite --dry-run 2>&1 | grep "will be built" | grep -o '/nix/store/[^ ]*\.drv') 2>/dev/null | tail -50
+            exit 1
+          }
