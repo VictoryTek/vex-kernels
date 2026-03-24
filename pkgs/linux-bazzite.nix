@@ -42,6 +42,10 @@ in
 kernel.overrideAttrs (old: {
   patches = [];
 
+  # Limit parallelism to reduce memory pressure and get cleaner error output
+  enableParallelBuilding = false;
+  makeFlags = (old.makeFlags or []) ++ [ "V=1" ];
+
   postPatch = ''
     cp ${bazzite}/Makefile.rhelver .
 

@@ -32,6 +32,6 @@ jobs:
         run: |
           nix build .#linux-bazzite --show-trace --keep-failed 2>&1 || {
             echo "=== BUILD FAILED, fetching full log ==="
-            nix log $(nix build .#linux-bazzite --dry-run 2>&1 | grep "will be built" | grep -o '/nix/store/[^ ]*\.drv') 2>/dev/null | tail -50
+            nix log /nix/store/93sgipp2495nl50xj1d9szgqg8khif0n-linux-6.17.7-ba28.drv 2>/dev/null | grep -E "(error:|Error|FAILED|undefined|cannot)" | tail -30
             exit 1
           }
