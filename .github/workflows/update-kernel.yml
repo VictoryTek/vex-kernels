@@ -22,16 +22,14 @@ jobs:
       - name: Check for new commits on bazzite branch
         id: check
         run: |
-          # Get the branch name for the current major version in pins.json
           CURRENT_VERSION=$(cat pins.json | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])")
           MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
           BRANCH="bazzite-${MAJOR}"
 
-          # Get latest commit on that branch
+          # /commits returns an array — grab sha from first element
           LATEST_REV=$(curl -s "https://api.github.com/repos/bazzite-org/kernel-bazzite/commits/${BRANCH}" \
-            | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])")
+            | python3 -c "import sys,json; data=json.load(sys.stdin); print(data[0]['sha'] if isinstance(data, list) else data['sha'])")
 
-          # Get latest release tag to extract the version number
           LATEST_TAG=$(curl -s https://api.github.com/repos/bazzite-org/kernel-bazzite/releases/latest \
             | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
 
