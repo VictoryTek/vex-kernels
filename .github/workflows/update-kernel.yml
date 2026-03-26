@@ -1,6 +1,9 @@
 name: Update Bazzite Kernel
 
 on:
+  # ============================================================
+  # SECTION: TRIGGERS
+  # ============================================================
   schedule:
     - cron: '0 */6 * * *'
   workflow_dispatch:
@@ -13,12 +16,18 @@ jobs:
       pull-requests: write
 
     steps:
+      # ============================================================
+      # SECTION: SETUP
+      # ============================================================
       - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v14
 
+      # ============================================================
+      # SECTION: CHECK FOR NEW RELEASE
+      # ============================================================
       - name: Check for new commits on bazzite branch
         id: check
         run: |
@@ -50,6 +59,9 @@ jobs:
             echo "needs_update=false" >> $GITHUB_OUTPUT
           fi
 
+      # ============================================================
+      # SECTION: FETCH NEW HASHES
+      # ============================================================
       - name: Fetch new source hash
         if: steps.check.outputs.needs_update == 'true'
         run: |
@@ -61,9 +73,7 @@ jobs:
             bazzite-org kernel-bazzite \
             | python3 -c "import sys,json; print(json.load(sys.stdin)['hash'])")
 
-          # Get vanilla kernel version from tag (strip bazzite suffix)
           KERNEL_VER=$(echo "$VERSION" | cut -d- -f1)
-          KERNEL_URL="mirror://kernel/linux/kernel/v6.x/linux-${KERNEL_VER}.tar.xz"
 
           KERNEL_HASH=$(nix-prefetch-url --type sha256 \
             "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VER}.tar.xz" 2>/dev/null \
@@ -84,10 +94,16 @@ jobs:
           echo "Updated pins.json to $VERSION"
           cat pins.json
 
+      # ============================================================
+      # SECTION: UPDATE FLAKE LOCK
+      # ============================================================
       - name: Update flake.lock
         if: steps.check.outputs.needs_update == 'true'
         run: nix flake update
 
+      # ============================================================
+      # SECTION: OPEN PULL REQUEST
+      # ============================================================
       - name: Open pull request
         if: steps.check.outputs.needs_update == 'true'
         uses: peter-evans/create-pull-request@v7
