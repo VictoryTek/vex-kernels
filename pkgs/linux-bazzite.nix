@@ -78,9 +78,13 @@ kernel.overrideAttrs (old: {
   # ============================================================
   # SECTION: POST PATCH
   # ============================================================
-  postPatch = ''
+postPatch = ''
     # Copy bazzite packaging files needed by the patched Makefile
     cp ${bazzite}/Makefile.rhelver .
+
+    # Copy the broadcom-wl binary blob required by the broadcom-wl driver
+    mkdir -p drivers/custom/broadcom-wl/lib
+    cp ${bazzite}/broadcom-wl.blob drivers/custom/broadcom-wl/lib/wlc_hybrid.o_shipped
 
     # Pre-create ALL directories that patch-3-akmods references under drivers/custom
     # Scans the patch itself so this works automatically for future bazzite versions
