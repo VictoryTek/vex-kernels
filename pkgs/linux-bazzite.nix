@@ -49,19 +49,22 @@ kernel.overrideAttrs (old: {
   postPatch = ''
     cp ${bazzite}/Makefile.rhelver .
 
-    for kconfig in \
-      drivers/custom/evdi/module/Kconfig \
-      drivers/custom/v4l2loopback/Kconfig \
-      drivers/custom/openrazer/Kconfig \
-      drivers/custom/facecam/Kconfig \
-      drivers/custom/nct6687d/Kconfig \
-      drivers/custom/gcadapter_oc/Kconfig \
-      drivers/custom/gpd-fan/Kconfig \
-      drivers/custom/ryzen_smu/Kconfig \
-      drivers/custom/zenergy/Kconfig \
-      drivers/custom/xonedo/Kconfig; do
-      mkdir -p "$(dirname $kconfig)"
-      touch "$kconfig"
+    # Pre-create all drivers/custom subdirectories so patch can populate them
+    # patch-3-akmods adds new drivers but needs directories to exist first
+    for dir in \
+      drivers/custom/evdi/module \
+      drivers/custom/v4l2loopback \
+      drivers/custom/openrazer \
+      drivers/custom/facecam \
+      drivers/custom/nct6687d \
+      drivers/custom/gcadapter_oc \
+      drivers/custom/gpd-fan \
+      drivers/custom/ryzen_smu \
+      drivers/custom/zenergy \
+      drivers/custom/xonedo \
+      drivers/custom/ayn_platform; do
+      mkdir -p "$dir"
+      touch "$dir/Kconfig"
     done
 
     for p in \

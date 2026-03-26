@@ -26,11 +26,14 @@ jobs:
           MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
           BRANCH="bazzite-${MAJOR}"
 
-          # /commits returns an array — grab sha from first element
-          LATEST_REV=$(curl -s "https://api.github.com/repos/bazzite-org/kernel-bazzite/commits/${BRANCH}" \
+          LATEST_REV=$(curl -s \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            "https://api.github.com/repos/bazzite-org/kernel-bazzite/commits/${BRANCH}" \
             | python3 -c "import sys,json; data=json.load(sys.stdin); print(data[0]['sha'] if isinstance(data, list) else data['sha'])")
 
-          LATEST_TAG=$(curl -s https://api.github.com/repos/bazzite-org/kernel-bazzite/releases/latest \
+          LATEST_TAG=$(curl -s \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            "https://api.github.com/repos/bazzite-org/kernel-bazzite/releases/latest" \
             | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
 
           CURRENT_REV=$(cat pins.json | python3 -c "import sys,json; print(json.load(sys.stdin)['rev'])")
@@ -50,25 +53,35 @@ jobs:
       - name: Fetch new source hash
         if: steps.check.outputs.needs_update == 'true'
         run: |
+          VERSION="${{ steps.check.outputs.latest_tag }}"
           LATEST_REV="${{ steps.check.outputs.latest_rev }}"
-          LATEST_TAG="${{ steps.check.outputs.latest_tag }}"
 
           SRC_HASH=$(nix run nixpkgs#nix-prefetch-github -- \
             --rev "$LATEST_REV" \
             bazzite-org kernel-bazzite \
             | python3 -c "import sys,json; print(json.load(sys.stdin)['hash'])")
 
+          # Get vanilla kernel version from tag (strip bazzite suffix)
+          KERNEL_VER=$(echo "$VERSION" | cut -d- -f1)
+          KERNEL_URL="mirror://kernel/linux/kernel/v6.x/linux-${KERNEL_VER}.tar.xz"
+
+          KERNEL_HASH=$(nix-prefetch-url --type sha256 \
+            "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VER}.tar.xz" 2>/dev/null \
+            | tail -1 \
+            | xargs -I{} nix hash convert --hash-algo sha256 --to sri {})
+
           python3 -c "
           import json
           data = {
-            'version': '$LATEST_TAG',
+            'version': '$VERSION',
             'rev': '$LATEST_REV',
-            'srcHash': '$SRC_HASH'
+            'srcHash': '$SRC_HASH',
+            'kernelHash': '$KERNEL_HASH'
           }
           print(json.dumps(data, indent=2))
           " > pins.json
 
-          echo "Updated pins.json to $LATEST_TAG ($LATEST_REV)"
+          echo "Updated pins.json to $VERSION"
           cat pins.json
 
       - name: Update flake.lock
