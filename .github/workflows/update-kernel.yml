@@ -35,10 +35,13 @@ jobs:
           MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
           BRANCH="bazzite-${MAJOR}"
 
-          # Use the branches API to get the latest commit on the branch
-          LATEST_REV=$(curl -s \
+          API_RESPONSE=$(curl -s \
             -H "Authorization: Bearer ${{ github.token }}" \
-            "https://api.github.com/repos/bazzite-org/kernel-bazzite/branches/${BRANCH}" \
+            "https://api.github.com/repos/bazzite-org/kernel-bazzite/branches/${BRANCH}")
+
+          echo "API Response: $(echo $API_RESPONSE | cut -c1-300)"
+
+          LATEST_REV=$(echo "$API_RESPONSE" \
             | python3 -c "import sys,json; print(json.load(sys.stdin)['commit']['sha'])")
 
           LATEST_TAG=$(curl -s \
