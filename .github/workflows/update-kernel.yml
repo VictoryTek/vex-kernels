@@ -32,13 +32,15 @@ jobs:
         id: check
         run: |
           CURRENT_VERSION=$(cat pins.json | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])")
-          MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
-          BRANCH="bazzite-${MAJOR}"
+          # Extract major.minor from version e.g. 6.17.7-ba28 -> 6.17
+          MAJOR_MINOR=$(echo $CURRENT_VERSION | cut -d. -f1,2)
+          BRANCH="bazzite-${MAJOR_MINOR}"
 
           API_RESPONSE=$(curl -s \
             -H "Authorization: Bearer ${{ github.token }}" \
             "https://api.github.com/repos/bazzite-org/kernel-bazzite/branches/${BRANCH}")
 
+          echo "Branch: $BRANCH"
           echo "API Response: $(echo $API_RESPONSE | cut -c1-300)"
 
           LATEST_REV=$(echo "$API_RESPONSE" \
