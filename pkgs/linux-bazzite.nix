@@ -78,7 +78,7 @@ kernel.overrideAttrs (old: {
   # ============================================================
   # SECTION: POST PATCH
   # ============================================================
-postPatch = ''
+  postPatch = ''
     # Copy bazzite packaging files needed by the patched Makefile
     cp ${bazzite}/Makefile.rhelver .
 
@@ -104,6 +104,11 @@ postPatch = ''
       echo "Applying $p"
       patch -p1 --forward --no-backup-if-mismatch < "$p" || true
     done
+
+    # Patch evdi Makefile to not require /etc/os-release (doesn't exist in Nix sandbox)
+    if [ -f drivers/custom/evdi/module/Makefile ]; then
+      sed -i '/os-release/d' drivers/custom/evdi/module/Makefile
+    fi
   '' + (old.postPatch or "");
 
   # ============================================================
