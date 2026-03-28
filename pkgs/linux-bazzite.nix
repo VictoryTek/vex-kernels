@@ -69,13 +69,6 @@ kernel.overrideAttrs (old: {
   patches = [];
 
   # ============================================================
-  # SECTION: BUILD FLAGS
-  # Limit parallelism to reduce memory pressure and get cleaner error output
-  # ============================================================
-  enableParallelBuilding = false;
-  makeFlags = (old.makeFlags or []) ++ [ "V=1" ];
-
-  # ============================================================
   # SECTION: POST PATCH
   # ============================================================
   postPatch = ''

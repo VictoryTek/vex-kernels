@@ -1,6 +1,9 @@
 name: Build Check
 
 on:
+  # ============================================================
+  # SECTION: TRIGGERS
+  # ============================================================
   pull_request:
     branches: [ main ]
   push:
@@ -11,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ============================================================
+      # SECTION: SETUP
+      # ============================================================
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -25,13 +31,24 @@ jobs:
           sudo swapon /mnt/swapfile
           free -h
 
+      # ============================================================
+      # SECTION: CACHIX
+      # Pushes build results to cache so machines never need to compile
+      # ============================================================
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: vex-kernels
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      # ============================================================
+      # SECTION: FLAKE CHECK
+      # ============================================================
       - name: Check flake is valid
         run: nix flake check
 
+      # ============================================================
+      # SECTION: BUILD KERNEL
+      # ============================================================
       - name: Build kernel
-        run: |
-          nix build .#linux-bazzite --show-trace --keep-failed 2>&1 || {
-            echo "=== BUILD FAILED, fetching full log ==="
-            nix log /nix/store/93sgipp2495nl50xj1d9szgqg8khif0n-linux-6.17.7-ba28.drv 2>/dev/null | grep -E "(error:|Error|FAILED|undefined|cannot)" | tail -30
-            exit 1
-          }
+        run: nix build .#linux-bazzite --show-trace
