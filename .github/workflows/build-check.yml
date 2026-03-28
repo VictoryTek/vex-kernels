@@ -32,17 +32,6 @@ jobs:
           free -h
 
       # ============================================================
-      # SECTION: CACHIX
-      # Pushes build results to cache so machines never need to compile
-      # ============================================================
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v15
-        with:
-          name: vex-kernels
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          pushFilter: "-source$"
-
-      # ============================================================
       # SECTION: FLAKE CHECK
       # ============================================================
       - name: Check flake is valid
@@ -53,11 +42,3 @@ jobs:
       # ============================================================
       - name: Build kernel
         run: nix build .#linux-bazzite --show-trace
-
-      # ============================================================
-      # SECTION: PUSH TO CACHIX
-      # ============================================================
-      - name: Push to Cachix
-        run: |
-          nix build .#linux-bazzite --print-out-paths \
-            | xargs cachix push vex-kernels
