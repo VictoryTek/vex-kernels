@@ -1,3 +1,4 @@
 builds:
-  - host: x86_64-linux
-    attr: packages.x86_64-linux.linux-bazzite
+  include:
+    - "packages.x86_64-linux.linux-bazzite"
+  exclude: []

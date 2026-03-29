@@ -4,6 +4,15 @@
   fetchurl,
   linuxManualConfig,
   runCommand,
+  # features ? {} absorbs NixOS kernel.nix's `.override { features = ...; }` calls.
+  # linuxManualConfig does not auto-expose passthru.features (unlike buildLinux),
+  # so without this arg the override fails with "unexpected argument 'features'".
+  # The value is intentionally ignored — CONFIG_IA32_EMULATION and CONFIG_EFI_STUB
+  # are already enabled in the Fedora gaming config that Bazzite ships.
+  features ? {},
+  # Absorb randstructSeed and any other args injected by the nixpkgs kernel
+  # override chain (kernel.nix, linuxPackagesFor, etc.).
+  ...  
 }:
 
 let
@@ -112,3 +121,9 @@ kernel.overrideAttrs (old: {
     branch = "bazzite-${lib.versions.major pins.version}";
   };
 })
+# Expose features at the top level so NixOS assertion checks pass:
+#   hardware.graphics.enable32Bit assertion requires features.ia32Emulation = true
+#   systemd-boot assertion requires features.efiBootStub = true
+# Bazzite ships the Fedora gaming config: CONFIG_IA32_EMULATION=y, CONFIG_EFI_STUB=y.
+# Using `//` adds Nix-level metadata only — the derivation and its store path are unchanged.
+// { features = { ia32Emulation = true; efiBootStub = true; }; }
