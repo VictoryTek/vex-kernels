@@ -32,24 +32,65 @@ jobs:
         id: check
         run: |
           CURRENT_VERSION=$(cat pins.json | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])")
-          # Extract major.minor from version e.g. 6.17.7-ba28 -> 6.17
           MAJOR_MINOR=$(echo $CURRENT_VERSION | cut -d. -f1,2)
           BRANCH="bazzite-${MAJOR_MINOR}"
 
-          API_RESPONSE=$(curl -s \
+          # Get latest branch commit
+          BRANCH_RESPONSE=$(curl -s \
             -H "Authorization: Bearer ${{ github.token }}" \
             "https://api.github.com/repos/bazzite-org/kernel-bazzite/branches/${BRANCH}")
 
-          echo "Branch: $BRANCH"
-          echo "API Response: $(echo $API_RESPONSE | cut -c1-300)"
-
-          LATEST_REV=$(echo "$API_RESPONSE" \
+          LATEST_REV=$(echo "$BRANCH_RESPONSE" \
             | python3 -c "import sys,json; print(json.load(sys.stdin)['commit']['sha'])")
 
-          LATEST_TAG=$(curl -s \
+          # Get latest release
+          RELEASE_RESPONSE=$(curl -s \
             -H "Authorization: Bearer ${{ github.token }}" \
-            "https://api.github.com/repos/bazzite-org/kernel-bazzite/releases/latest" \
+            "https://api.github.com/repos/bazzite-org/kernel-bazzite/releases/latest")
+
+          LATEST_TAG=$(echo "$RELEASE_RESPONSE" \
             | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
+
+          # ============================================================
+          # VERIFICATION: Tag format is valid e.g. 6.17.7-ba28
+          # ============================================================
+          echo "$LATEST_TAG" | grep -qP '^\d+\.\d+\.\d+-ba\d+$' || {
+            echo "ERROR: Tag $LATEST_TAG does not match expected format X.Y.Z-baN"
+            exit 1
+          }
+          echo "✅ Tag format valid: $LATEST_TAG"
+
+          # ============================================================
+          # VERIFICATION: Kernel version in tag matches the branch
+          # e.g. tag 6.17.7-ba28 should be on branch bazzite-6.17
+          # ============================================================
+          TAG_MAJOR_MINOR=$(echo $LATEST_TAG | cut -d. -f1,2)
+          if [ "$TAG_MAJOR_MINOR" != "$MAJOR_MINOR" ]; then
+            echo "ERROR: Tag major.minor $TAG_MAJOR_MINOR does not match branch $BRANCH"
+            exit 1
+          fi
+          echo "✅ Tag major.minor matches branch: $TAG_MAJOR_MINOR = $MAJOR_MINOR"
+
+          # ============================================================
+          # VERIFICATION: Branch commit is real and reachable
+          # ============================================================
+          if [ -z "$LATEST_REV" ] || [ "$LATEST_REV" = "null" ]; then
+            echo "ERROR: Could not get latest commit from branch $BRANCH"
+            exit 1
+          fi
+          echo "✅ Branch commit valid: $LATEST_REV"
+
+          # ============================================================
+          # VERIFICATION: Vanilla kernel version exists on kernel.org
+          # ============================================================
+          KERNEL_VER=$(echo "$LATEST_TAG" | cut -d- -f1)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VER}.tar.xz")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "ERROR: Vanilla kernel linux-${KERNEL_VER}.tar.xz not found on kernel.org (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+          echo "✅ Vanilla kernel tarball exists on kernel.org: linux-${KERNEL_VER}.tar.xz"
 
           CURRENT_REV=$(cat pins.json | python3 -c "import sys,json; print(json.load(sys.stdin)['rev'])")
 
