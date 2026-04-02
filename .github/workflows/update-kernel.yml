@@ -35,15 +35,7 @@ jobs:
           MAJOR_MINOR=$(echo $CURRENT_VERSION | cut -d. -f1,2)
           BRANCH="bazzite-${MAJOR_MINOR}"
 
-          # Get latest branch commit
-          BRANCH_RESPONSE=$(curl -s \
-            -H "Authorization: Bearer ${{ github.token }}" \
-            "https://api.github.com/repos/bazzite-org/kernel-bazzite/branches/${BRANCH}")
-
-          LATEST_REV=$(echo "$BRANCH_RESPONSE" \
-            | python3 -c "import sys,json; print(json.load(sys.stdin)['commit']['sha'])")
-
-          # Get latest release
+          # Get latest release tag
           RELEASE_RESPONSE=$(curl -s \
             -H "Authorization: Bearer ${{ github.token }}" \
             "https://api.github.com/repos/bazzite-org/kernel-bazzite/releases/latest")
@@ -72,13 +64,24 @@ jobs:
           echo "✅ Tag major.minor matches branch: $TAG_MAJOR_MINOR = $MAJOR_MINOR"
 
           # ============================================================
-          # VERIFICATION: Branch commit is real and reachable
+          # RESOLVE: Get the commit SHA for the release tag specifically
+          # Uses the commits API which resolves both lightweight and annotated tags
+          # ============================================================
+          TAG_COMMIT_RESPONSE=$(curl -s \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            "https://api.github.com/repos/bazzite-org/kernel-bazzite/commits/${LATEST_TAG}")
+
+          LATEST_REV=$(echo "$TAG_COMMIT_RESPONSE" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])")
+
+          # ============================================================
+          # VERIFICATION: Tag commit is real and reachable
           # ============================================================
           if [ -z "$LATEST_REV" ] || [ "$LATEST_REV" = "null" ]; then
-            echo "ERROR: Could not get latest commit from branch $BRANCH"
+            echo "ERROR: Could not resolve commit SHA for tag $LATEST_TAG"
             exit 1
           fi
-          echo "✅ Branch commit valid: $LATEST_REV"
+          echo "✅ Tag commit resolved: $LATEST_REV"
 
           # ============================================================
           # VERIFICATION: Vanilla kernel version exists on kernel.org
@@ -92,15 +95,14 @@ jobs:
           fi
           echo "✅ Vanilla kernel tarball exists on kernel.org: linux-${KERNEL_VER}.tar.xz"
 
-          CURRENT_REV=$(cat pins.json | python3 -c "import sys,json; print(json.load(sys.stdin)['rev'])")
-
           echo "latest_rev=$LATEST_REV" >> $GITHUB_OUTPUT
           echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-          echo "current_rev=$CURRENT_REV" >> $GITHUB_OUTPUT
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
 
-          if [ "$LATEST_REV" != "$CURRENT_REV" ]; then
+          # needs_update is driven by tag comparison, not commit SHA comparison,
+          # so a new release is never missed even if the branch HEAD was already pinned
+          if [ "$LATEST_TAG" != "$CURRENT_VERSION" ]; then
             echo "needs_update=true" >> $GITHUB_OUTPUT
           else
             echo "needs_update=false" >> $GITHUB_OUTPUT
