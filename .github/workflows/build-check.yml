@@ -49,13 +49,23 @@ jobs:
       # ============================================================
       - name: Verify kernel version
         run: |
-          EXPECTED_VERSION=$(cat pins.json | python3 -c "import sys,json; v=json.load(sys.stdin)['version']; print(v.split('-')[0])")
-          KERNEL_RELEASE=$(cat $(nix build .#linux-bazzite --print-out-paths --no-link)/lib/modules/*/modules.builtin 2>/dev/null | head -1 | grep -oP '\d+\.\d+\.\d+' | head -1 || echo "unknown")
+          BASE_VERSION=$(cat pins.json | python3 -c "import sys,json; v=json.load(sys.stdin)['version']; print(v.split('-')[0])")
+          BAZZITE_SUFFIX=$(cat pins.json | python3 -c "import sys,json; v=json.load(sys.stdin)['version']; print(v.split('-')[1])")
+          EXPECTED_VERSION="${BASE_VERSION}-${BAZZITE_SUFFIX}.fc43.x86_64"
 
-          # Check the kernel image directly
+          # Check the modules directory is named correctly (matches uname -r)
           BUILT_PATH=$(nix build .#linux-bazzite --print-out-paths --no-link)
+          MOD_DIR=$(find $BUILT_PATH/lib/modules -maxdepth 1 -mindepth 1 -type d | head -1 | xargs basename)
+          if [ "$MOD_DIR" = "$EXPECTED_VERSION" ]; then
+            echo "✅ Modules directory matches expected version: ${EXPECTED_VERSION}"
+          else
+            echo "⚠️  Modules directory mismatch"
+            echo "Expected: ${EXPECTED_VERSION}, got: ${MOD_DIR}"
+          fi
+
+          # Check the kernel image directly for the version string
           if find $BUILT_PATH -name "vmlinuz*" | head -1 | xargs strings 2>/dev/null | grep -q "Linux version ${EXPECTED_VERSION}"; then
-            echo "✅ Kernel version verified: ${EXPECTED_VERSION}"
+            echo "✅ Kernel version string verified: ${EXPECTED_VERSION}"
           else
             echo "⚠️  Could not verify kernel version string (this is non-fatal)"
             echo "Expected: ${EXPECTED_VERSION}"

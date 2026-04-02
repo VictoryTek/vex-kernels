@@ -45,15 +45,25 @@ let
   # no-jump-tables option used in the Fedora config
   # ============================================================
   configfile = runCommand "bazzite-kernel-config" {} ''
-    sed 's/CONFIG_RUST=y/CONFIG_RUST=n/g' \
+    sed \
+      -e 's/CONFIG_RUST=y/CONFIG_RUST=n/g' \
+      -e 's/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION="${localVersion}"/' \
+      -e 's/^CONFIG_LOCALVERSION_AUTO=y/CONFIG_LOCALVERSION_AUTO=n/' \
       ${bazzite}/kernel-x86_64-fedora.config > $out
+    # Ensure CONFIG_LOCALVERSION is present even if the upstream config omits it
+    grep -q '^CONFIG_LOCALVERSION=' $out || echo 'CONFIG_LOCALVERSION="${localVersion}"' >> $out
+    grep -q '^CONFIG_LOCALVERSION_AUTO=' $out || echo 'CONFIG_LOCALVERSION_AUTO=n' >> $out
   '';
 
   # ============================================================
   # SECTION: VERSION HANDLING
-  # Strip the bazzite suffix to get the vanilla kernel version e.g. 6.17.7
+  # kernelVersion: vanilla base e.g. "6.17.7"
+  # bazziteSuffix: bazzite release tag e.g. "ba28" (from pins.version "6.17.7-ba28")
+  # localVersion:  full local suffix matching Bazzite's naming e.g. "-ba28.fc43.x86_64"
   # ============================================================
   kernelVersion = builtins.head (lib.strings.splitString "-" pins.version);
+  bazziteSuffix = builtins.elemAt (lib.strings.splitString "-" pins.version) 1;
+  localVersion  = "-${bazziteSuffix}.fc43.x86_64";
 
   # ============================================================
   # SECTION: BASE KERNEL DERIVATION
@@ -61,7 +71,7 @@ let
   kernel = linuxManualConfig {
     inherit src lib configfile;
     version = pins.version;
-    modDirVersion = kernelVersion;
+    modDirVersion = "${kernelVersion}${localVersion}";
     allowImportFromDerivation = true;
   };
 in
