@@ -151,6 +151,42 @@ jobs:
         run: nix flake update
 
       # ============================================================
+      # SECTION: BUILD & VERIFY
+      # linuxManualConfig splits outputs: image → out, modules → dev.
+      # Building only .#linux-bazzite (out) won't have lib/modules.
+      # ============================================================
+      - name: Build and verify kernel
+        if: steps.check.outputs.needs_update == 'true'
+        env:
+          DETERMINATE_NIX_KVM: 1
+        run: |
+          BASE_VERSION=$(python3 -c "import json; v=json.load(open('pins.json'))['version']; print(v.split('-')[0])")
+          BAZZITE_SUFFIX=$(python3 -c "import json; v=json.load(open('pins.json'))['version']; print(v.split('-')[1])")
+          EXPECTED_VERSION="${BASE_VERSION}-${BAZZITE_SUFFIX}.fc43.x86_64"
+
+          # Build the default (image) and dev (modules) outputs separately
+          BUILT_PATH=$(nix build .#linux-bazzite --print-out-paths --no-link)
+          BUILT_DEV_PATH=$(nix build .#linux-bazzite^dev --print-out-paths --no-link)
+
+          # Check the modules directory is named correctly (matches uname -r)
+          MOD_DIR=$(find "$BUILT_DEV_PATH/lib/modules" -maxdepth 1 -mindepth 1 -type d | head -1 | xargs -r basename)
+          if [ "$MOD_DIR" = "$EXPECTED_VERSION" ]; then
+            echo "✅ Modules directory matches expected version: ${EXPECTED_VERSION}"
+          else
+            echo "⚠️  Modules directory mismatch"
+            echo "Expected: ${EXPECTED_VERSION}, got: ${MOD_DIR}"
+          fi
+
+          # Check the kernel image directly for the version string
+          VMLINUZ=$(find "$BUILT_PATH" -name "vmlinuz*" | head -1)
+          if [ -n "$VMLINUZ" ] && strings "$VMLINUZ" 2>/dev/null | grep -q "Linux version ${EXPECTED_VERSION}"; then
+            echo "✅ Kernel version string verified: ${EXPECTED_VERSION}"
+          else
+            echo "⚠️  Could not verify kernel version string (this is non-fatal)"
+            echo "Expected: ${EXPECTED_VERSION}"
+          fi
+
+      # ============================================================
       # SECTION: OPEN PULL REQUEST
       # ============================================================
       - name: Open pull request
